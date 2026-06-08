@@ -346,17 +346,22 @@ def plan(ctx, max_cargos, strategy, multi_strategies, all_strategies, plan_name,
         plans = calculate_all_costs(plans, ships, ports, cargos)
         check_results_all = check_all(plans, ships, ports, cargos)
 
+        plans_filtered = apply_filter_options(plans, **filter_kwargs)
+        check_results_filtered = filter_check_results_by_plans(check_results_all, plans_filtered)
+
+        has_filter = any(v is not None for v in filter_kwargs.values())
+        if has_filter:
+            plans_to_save = plans_filtered
+            check_results_to_save = check_results_filtered
+        else:
+            plans_to_save = plans
+            check_results_to_save = check_results_all
+
         if schedule_plan is not None:
             add_scenario(
                 schedule_plan, strat, config["name"], config["description"],
-                plans, check_results_all, unassigned
+                plans_to_save, check_results_to_save, unassigned
             )
-
-        plans_filtered = apply_filter_options(plans, **filter_kwargs)
-        check_results_filtered = [
-            cr for cr in check_results_all
-            if cr.voyage_id in [p.voyage.voyage_id for p in plans_filtered]
-        ]
 
         if len(strategies) == 1:
             if not plans_filtered:
@@ -366,16 +371,20 @@ def plan(ctx, max_cargos, strategy, multi_strategies, all_strategies, plan_name,
                 _print_plan_results(plans_filtered, check_results_filtered, unassigned, cargos,
                                   show_costs, output_file, output_format, **filter_kwargs)
         else:
-            console.print(f"  航次数: {len(plans)}, 未安排: {len(unassigned)}, "
-                         f"总费用: {format_currency(sum(p.cost.total_cost for p in plans))}\n")
+            console.print(f"  航次数: {len(plans_filtered)}, 未安排: {len(unassigned)}, "
+                         f"总费用: {format_currency(sum(p.cost.total_cost for p in plans_filtered))}\n")
 
-        ctx.obj[f"plans_{strat.value}"] = plans
-        ctx.obj[f"check_{strat.value}"] = check_results_all
+        ctx.obj[f"plans_{strat.value}"] = plans_filtered
+        ctx.obj[f"check_{strat.value}"] = check_results_filtered
         ctx.obj[f"unassigned_{strat.value}"] = unassigned
 
     if len(strategies) > 1:
         scenarios_list = []
+        seen_strategies = set()
         for idx, strat in enumerate(strategies):
+            if strat in seen_strategies:
+                continue
+            seen_strategies.add(strat)
             config = STRATEGY_CONFIGS[strat]
             plans = ctx.obj.get(f"plans_{strat.value}", [])
             unassigned = ctx.obj.get(f"unassigned_{strat.value}", [])
@@ -463,8 +472,11 @@ def check(ctx, output_file, scenario, **filter_kwargs):
     plans = apply_filter_options(plans, **merged_filters)
     check_results = filter_check_results_by_plans(check_results, plans)
 
-    if check_results is None or len(check_results) == 0:
+    needs_recheck = has_user_filters and (ships is not None and ports is not None)
+    if needs_recheck or check_results is None or len(check_results) == 0:
         if ships and ports:
+            if needs_recheck:
+                console.print("[dim]筛选条件已变更，重新计算约束检查...[/dim]")
             check_results = check_all(plans, ships, ports, cargos)
         elif loaded_plan:
             console.print("[dim]提示: 使用计划中已保存的检查结果[/dim]")
