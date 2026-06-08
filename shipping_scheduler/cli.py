@@ -246,11 +246,25 @@ def get_active_scenario(ctx, scenario_id: str = None):
     if loaded_plan:
         try:
             scenario, filters = get_scenario_for_operation(loaded_plan, scenario_id)
-            return scenario.plans, scenario.check_results, scenario.unassigned_cargos, loaded_plan
+            return scenario.plans, scenario.check_results, scenario.unassigned_cargos, filters
         except ValueError as e:
             console.print(f"[red]{e}[/red]")
             sys.exit(1)
     return None, None, None, None
+
+
+def merge_filters(saved_filters: Dict[str, any], user_filters: Dict[str, any]) -> Dict[str, any]:
+    merged = saved_filters.copy()
+    for k, v in user_filters.items():
+        if v is not None:
+            merged[k] = v
+    return merged
+
+
+def apply_saved_filters(plans, saved_filters):
+    if not saved_filters:
+        return plans
+    return apply_filter_options(plans, **saved_filters)
 
 
 @cli.command()
@@ -283,13 +297,17 @@ def plan(ctx, max_cargos, strategy, multi_strategies, all_strategies, plan_name,
 
     if loaded_plan:
         if not multi_strategies and not all_strategies:
-            plans, check_results, unassigned, _ = get_active_scenario(ctx, scenario)
+            plans, check_results, unassigned, saved_filters = get_active_scenario(ctx, scenario)
             if plans is not None:
-                plans = apply_filter_options(plans, **filter_kwargs)
+                merged_filters = merge_filters(saved_filters or {}, filter_kwargs)
+                has_user_filters = any(v is not None for v in filter_kwargs.values())
+                if saved_filters and not has_user_filters:
+                    console.print(f"[dim]应用保存的筛选条件: {saved_filters}[/dim]")
+                plans = apply_filter_options(plans, **merged_filters)
                 check_results = filter_check_results_by_plans(check_results, plans)
                 console.print(f"[green]从计划文件加载: {len(plans)} 个航次[/green]\n")
                 _print_plan_results(plans, check_results, unassigned, cargos, show_costs,
-                                  output_file, output_format, **filter_kwargs)
+                                  output_file, output_format, **merged_filters)
                 return
 
     if ports is None or ships is None or cargos is None:
@@ -421,8 +439,9 @@ def check(ctx, output_file, scenario, **filter_kwargs):
     check_results = None
     unassigned = []
 
+    saved_filters = {}
     if loaded_plan:
-        plans, check_results, unassigned, _ = get_active_scenario(ctx, scenario)
+        plans, check_results, unassigned, saved_filters = get_active_scenario(ctx, scenario)
         if plans is None:
             console.print("[red]计划文件中没有可用的航次数据[/red]")
             return
@@ -436,7 +455,12 @@ def check(ctx, output_file, scenario, **filter_kwargs):
             plans, unassigned = generate_candidate_voyages(ports, ships, cargos, routes)
             plans = calculate_all_costs(plans, ships, ports, cargos)
 
-    plans = apply_filter_options(plans, **filter_kwargs)
+    merged_filters = merge_filters(saved_filters or {}, filter_kwargs)
+    has_user_filters = any(v is not None for v in filter_kwargs.values())
+    if saved_filters and not has_user_filters:
+        console.print(f"[dim]应用保存的筛选条件: {saved_filters}[/dim]")
+
+    plans = apply_filter_options(plans, **merged_filters)
     check_results = filter_check_results_by_plans(check_results, plans)
 
     if check_results is None or len(check_results) == 0:
@@ -476,9 +500,10 @@ def cost(ctx, detail, output_file, scenario, **filter_kwargs):
     plans = None
     check_results = None
     unassigned = []
+    saved_filters = {}
 
     if loaded_plan:
-        plans, check_results, unassigned, _ = get_active_scenario(ctx, scenario)
+        plans, check_results, unassigned, saved_filters = get_active_scenario(ctx, scenario)
         if plans is None:
             console.print("[red]计划文件中没有可用的航次数据[/red]")
             return
@@ -499,7 +524,12 @@ def cost(ctx, detail, output_file, scenario, **filter_kwargs):
     elif not has_cost_data:
         console.print("[yellow]警告: 缺少船舶/港口/货物原始数据，无法重新计算费用[/yellow]")
 
-    plans = apply_filter_options(plans, **filter_kwargs)
+    merged_filters = merge_filters(saved_filters or {}, filter_kwargs)
+    has_user_filters = any(v is not None for v in filter_kwargs.values())
+    if saved_filters and not has_user_filters:
+        console.print(f"[dim]应用保存的筛选条件: {saved_filters}[/dim]")
+
+    plans = apply_filter_options(plans, **merged_filters)
     check_results = filter_check_results_by_plans(check_results, plans)
 
     if check_results is None or len(check_results) == 0:
@@ -542,6 +572,7 @@ def report(ctx, report_type, output_file, output_format, scenario, compare_all, 
     plans = None
     check_results = None
     unassigned = []
+    saved_filters = {}
 
     if loaded_plan:
         if report_type == "compare" or compare_all:
@@ -553,7 +584,7 @@ def report(ctx, report_type, output_file, output_format, scenario, compare_all, 
                     export_scenario_comparison(loaded_plan.scenarios, output_file)
             return
 
-        plans, check_results, unassigned, _ = get_active_scenario(ctx, scenario)
+        plans, check_results, unassigned, saved_filters = get_active_scenario(ctx, scenario)
         if plans is None:
             console.print("[red]计划文件中没有可用的航次数据[/red]")
             return
@@ -567,7 +598,12 @@ def report(ctx, report_type, output_file, output_format, scenario, compare_all, 
             plans, unassigned = generate_candidate_voyages(ports, ships, cargos, routes)
             plans = calculate_all_costs(plans, ships, ports, cargos)
 
-    plans = apply_filter_options(plans, **filter_kwargs)
+    merged_filters = merge_filters(saved_filters or {}, filter_kwargs)
+    has_user_filters = any(v is not None for v in filter_kwargs.values())
+    if saved_filters and not has_user_filters:
+        console.print(f"[dim]应用保存的筛选条件: {saved_filters}[/dim]")
+
+    plans = apply_filter_options(plans, **merged_filters)
     check_results = filter_check_results_by_plans(check_results, plans)
 
     if check_results is None or len(check_results) == 0:
