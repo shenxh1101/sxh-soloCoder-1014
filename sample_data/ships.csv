@@ -1,0 +1,6 @@
+name,imo,deadweight,draft,speed,fuel_consumption,fuel_price,daily_charter,carries_dangerous,carries_refrigerated,available_from
+远洋一号,IMO9876543,50000,11.5,14,35,4500,80000,true,true,2026-06-01
+海河之星,IMO9876544,35000,10.0,12,28,4500,60000,true,false,2026-06-05
+长江明珠,IMO9876545,25000,9.0,10,20,4500,45000,false,true,2026-06-03
+太平洋号,IMO9876546,75000,12.0,15,45,4500,120000,true,true,2026-06-10
+南海先锋,IMO9876547,40000,10.5,13,32,4500,70000,false,false,2026-06-01

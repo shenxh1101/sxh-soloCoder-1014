@@ -1,0 +1,7 @@
+code,name,max_draft,handling_rate,port_fee_per_ton,dangerous_cargo_fee,refrigerated_fee,working_hours_start,working_hours_end,demurrage_rate
+SHA,上海港,12.5,5000,15,60,40,8,18,15000
+NGB,宁波港,14.0,6000,12,55,35,8,18,12000
+SZX,深圳港,13.0,5500,18,65,45,8,18,18000
+GZH,广州港,11.5,4500,14,50,38,8,18,14000
+QDO,青岛港,13.5,5200,13,58,36,8,18,13000
+TJG,天津港,12.0,4800,16,62,42,8,18,16000

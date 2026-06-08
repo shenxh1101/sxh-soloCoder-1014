@@ -1,0 +1,164 @@
+{
+  "export_time": "2026-06-08T08:21:57.579441",
+  "voyages": [
+    {
+      "voyage": {
+        "voyage_id": "V0001",
+        "ship_name": "海河之星",
+        "cargo_ids": [
+          "C001",
+          "C015"
+        ],
+        "loading_port": "SHA",
+        "discharging_port": "SZX",
+        "departure_date": "2026-06-17",
+        "arrival_date": "2026-06-19",
+        "loading_start": "2026-06-12T08:00:00",
+        "loading_end": "2026-06-17T10:48:00",
+        "discharging_start": "2026-06-19T08:00:00",
+        "discharging_end": "2026-06-23T16:00:00",
+        "total_weight": 11000.0,
+        "is_dangerous": true,
+        "is_refrigerated": false,
+        "estimated_fuel": 70.0,
+        "estimated_days": 12.579999999999998
+      },
+      "cost": {
+        "fuel_cost": 252000.0,
+        "port_loading_fee": 165000.0,
+        "port_discharging_fee": 198000.0,
+        "dangerous_cargo_fee": 375000.0,
+        "refrigerated_fee": 0.0,
+        "charter_cost": 660000.0,
+        "demurrage_cost": 86624.99999999999,
+        "total_cost": 1736625.0
+      },
+      "warnings": [
+        "船舶载重率较低: 31.4%",
+        "存在中等滞期风险"
+      ],
+      "errors": [
+        "存在高滞期风险"
+      ],
+      "demurrage_risk": "high"
+    },
+    {
+      "voyage": {
+        "voyage_id": "V0002",
+        "ship_name": "远洋一号",
+        "cargo_ids": [
+          "C002"
+        ],
+        "loading_port": "NGB",
+        "discharging_port": "GZH",
+        "departure_date": "2026-06-14",
+        "arrival_date": "2026-06-16",
+        "loading_start": "2026-06-10T08:00:00",
+        "loading_end": "2026-06-14T16:00:00",
+        "discharging_start": "2026-06-16T08:00:00",
+        "discharging_end": "2026-06-22T12:00:00",
+        "total_weight": 12000.0,
+        "is_dangerous": true,
+        "is_refrigerated": false,
+        "estimated_fuel": 81.25,
+        "estimated_days": 13.521428571428572
+      },
+      "cost": {
+        "fuel_cost": 315000.0,
+        "port_loading_fee": 144000.0,
+        "port_discharging_fee": 168000.0,
+        "dangerous_cargo_fee": 1260000.0,
+        "refrigerated_fee": 0.0,
+        "charter_cost": 960000.0,
+        "demurrage_cost": 75833.33333333334,
+        "total_cost": 2922833.3333333335
+      },
+      "warnings": [
+        "船舶载重率较低: 24.0%",
+        "存在中等滞期风险"
+      ],
+      "errors": [
+        "存在高滞期风险"
+      ],
+      "demurrage_risk": "high"
+    },
+    {
+      "voyage": {
+        "voyage_id": "V0008",
+        "ship_name": "太平洋号",
+        "cargo_ids": [
+          "C008"
+        ],
+        "loading_port": "NGB",
+        "discharging_port": "SZX",
+        "departure_date": "2026-06-15",
+        "arrival_date": "2026-06-16",
+        "loading_start": "2026-06-15T08:00:00",
+        "loading_end": "2026-06-15T16:00:00",
+        "discharging_start": "2026-06-16T08:00:00",
+        "discharging_end": "2026-06-16T16:43:38.181818",
+        "total_weight": 2000.0,
+        "is_dangerous": true,
+        "is_refrigerated": false,
+        "estimated_fuel": 85.00000000000001,
+        "estimated_days": 3.5616161616161617
+      },
+      "cost": {
+        "fuel_cost": 202500.0,
+        "port_loading_fee": 24000.0,
+        "port_discharging_fee": 36000.0,
+        "dangerous_cargo_fee": 240000.0,
+        "refrigerated_fee": 0.0,
+        "charter_cost": 120000.0,
+        "demurrage_cost": 0.0,
+        "total_cost": 622500.0
+      },
+      "warnings": [
+        "船舶载重率较低: 2.7%"
+      ],
+      "errors": [],
+      "demurrage_risk": "low"
+    }
+  ],
+  "check_results": [
+    {
+      "voyage_id": "V0001",
+      "passed": true,
+      "issues": [],
+      "details": {
+        "deadweight": "载重率: 31.4%",
+        "draft": "吃水富余: 装港 2.50m, 卸港 3.00m",
+        "compatibility": "货物兼容，含危险品",
+        "schedule": "无时间冲突",
+        "port_availability": "港口泊位可用",
+        "deadlines": "所有货物时间要求满足"
+      }
+    },
+    {
+      "voyage_id": "V0002",
+      "passed": true,
+      "issues": [],
+      "details": {
+        "deadweight": "载重率: 24.0%",
+        "draft": "吃水富余: 装港 2.50m, 卸港 0.00m",
+        "compatibility": "货物兼容，含危险品",
+        "schedule": "无时间冲突",
+        "port_availability": "港口泊位可用",
+        "deadlines": "所有货物时间要求满足"
+      }
+    },
+    {
+      "voyage_id": "V0008",
+      "passed": true,
+      "issues": [],
+      "details": {
+        "deadweight": "载重率: 2.7%",
+        "draft": "吃水富余: 装港 2.00m, 卸港 1.00m",
+        "compatibility": "货物兼容，含危险品",
+        "schedule": "无时间冲突",
+        "port_availability": "港口泊位可用",
+        "deadlines": "所有货物时间要求满足"
+      }
+    }
+  ]
+}
