@@ -1,0 +1,412 @@
+{
+  "plan_id": "PLAN-20260608-C0FFB5CB",
+  "name": "调度计划",
+  "generated_at": "2026-06-08T08:41:11.061375",
+  "input_summary": {
+    "port_count": 6,
+    "ship_count": 5,
+    "cargo_count": 10,
+    "route_count": 15,
+    "total_cargo_weight": 153000.0,
+    "ports": [
+      "SHA",
+      "NGB",
+      "SZX",
+      "GZH",
+      "QDO",
+      "TJG"
+    ],
+    "ships": [
+      "远洋一号",
+      "海河之星",
+      "长江明珠",
+      "太平洋号",
+      "南海先锋"
+    ],
+    "data_sources": {
+      "ports": "sample_data/ports.csv",
+      "ships": "sample_data/ships_no_dangerous.csv",
+      "cargos": "sample_data/cargos_with_unassigned.csv",
+      "routes": "sample_data/routes.csv"
+    }
+  },
+  "scenarios": [
+    {
+      "scenario_id": "S01-lowest_cost",
+      "strategy": "lowest_cost",
+      "strategy_name": "最低成本",
+      "description": "优先选择总成本最低的船舶和方案，适合预算敏感场景",
+      "plans": [
+        {
+          "voyage": {
+            "voyage_id": "V0001",
+            "ship_name": "长江明珠",
+            "cargo_ids": [
+              "C001"
+            ],
+            "loading_port": "SHA",
+            "discharging_port": "SZX",
+            "departure_date": "2026-06-11",
+            "arrival_date": "2026-06-14",
+            "loading_start": "2026-06-08T08:00:00",
+            "loading_end": "2026-06-11T16:24:00",
+            "discharging_start": "2026-06-14T08:00:00",
+            "discharging_end": "2026-06-17T12:54:32.727273",
+            "total_weight": 8000.0,
+            "is_dangerous": false,
+            "is_refrigerated": false,
+            "estimated_fuel": 60.0,
+            "estimated_days": 10.33090909090909
+          },
+          "cost": {
+            "fuel_cost": 270000.0,
+            "port_loading_fee": 120000.0,
+            "port_discharging_fee": 144000.0,
+            "dangerous_cargo_fee": 0.0,
+            "refrigerated_fee": 0.0,
+            "charter_cost": 405000.0,
+            "demurrage_cost": 57750.00000005208,
+            "total_cost": 996750.000000052
+          },
+          "warnings": [
+            "船舶载重率较低: 32.0%"
+          ],
+          "errors": [
+            "存在高滞期风险"
+          ],
+          "demurrage_risk": "high"
+        },
+        {
+          "voyage": {
+            "voyage_id": "V0002",
+            "ship_name": "长江明珠",
+            "cargo_ids": [
+              "C003"
+            ],
+            "loading_port": "QDO",
+            "discharging_port": "SHA",
+            "departure_date": "2026-06-19",
+            "arrival_date": "2026-06-21",
+            "loading_start": "2026-06-17T08:00:00",
+            "loading_end": "2026-06-19T11:04:36.923077",
+            "discharging_start": "2026-06-21T08:00:00",
+            "discharging_end": "2026-06-23T12:00:00",
+            "total_weight": 5000.0,
+            "is_dangerous": false,
+            "is_refrigerated": true,
+            "estimated_fuel": 40.0,
+            "estimated_days": 6.707692307692307
+          },
+          "cost": {
+            "fuel_cost": 180000.0,
+            "port_loading_fee": 65000.0,
+            "port_discharging_fee": 75000.0,
+            "dangerous_cargo_fee": 0.0,
+            "refrigerated_fee": 380000.0,
+            "charter_cost": 270000.0,
+            "demurrage_cost": 32666.666666679128,
+            "total_cost": 1002666.6666666791
+          },
+          "warnings": [
+            "预计抵达时间超出货物期限 6 天",
+            "船舶载重率较低: 20.0%",
+            "存在中等滞期风险"
+          ],
+          "errors": [],
+          "demurrage_risk": "medium"
+        },
+        {
+          "voyage": {
+            "voyage_id": "V0003",
+            "ship_name": "海河之星",
+            "cargo_ids": [
+              "C005"
+            ],
+            "loading_port": "SHA",
+            "discharging_port": "QDO",
+            "departure_date": "2026-06-13",
+            "arrival_date": "2026-06-14",
+            "loading_start": "2026-06-12T08:00:00",
+            "loading_end": "2026-06-13T12:24:00",
+            "discharging_start": "2026-06-14T08:00:00",
+            "discharging_end": "2026-06-15T11:50:46.153846",
+            "total_weight": 3000.0,
+            "is_dangerous": false,
+            "is_refrigerated": false,
+            "estimated_fuel": 46.66666666666667,
+            "estimated_days": 4.491282051282051
+          },
+          "cost": {
+            "fuel_cost": 126000.0,
+            "port_loading_fee": 45000.0,
+            "port_discharging_fee": 39000.0,
+            "dangerous_cargo_fee": 0.0,
+            "refrigerated_fee": 0.0,
+            "charter_cost": 180000.0,
+            "demurrage_cost": 16333.333333308407,
+            "total_cost": 406333.3333333084
+          },
+          "warnings": [
+            "船舶载重率较低: 8.6%",
+            "存在中等滞期风险"
+          ],
+          "errors": [],
+          "demurrage_risk": "medium"
+        },
+        {
+          "voyage": {
+            "voyage_id": "V0004",
+            "ship_name": "南海先锋",
+            "cargo_ids": [
+              "C007"
+            ],
+            "loading_port": "GZH",
+            "discharging_port": "SHA",
+            "departure_date": "2026-06-12",
+            "arrival_date": "2026-06-14",
+            "loading_start": "2026-06-10T08:00:00",
+            "loading_end": "2026-06-12T09:20:00",
+            "discharging_start": "2026-06-14T08:00:00",
+            "discharging_end": "2026-06-15T17:12:00",
+            "total_weight": 4000.0,
+            "is_dangerous": false,
+            "is_refrigerated": false,
+            "estimated_fuel": 84.1025641025641,
+            "estimated_days": 6.681538461538461
+          },
+          "cost": {
+            "fuel_cost": 288000.0,
+            "port_loading_fee": 56000.0,
+            "port_discharging_fee": 60000.0,
+            "dangerous_cargo_fee": 0.0,
+            "refrigerated_fee": 0.0,
+            "charter_cost": 350000.0,
+            "demurrage_cost": 25375.000000000007,
+            "total_cost": 779375.0
+          },
+          "warnings": [
+            "船舶载重率较低: 10.0%",
+            "存在中等滞期风险"
+          ],
+          "errors": [],
+          "demurrage_risk": "medium"
+        },
+        {
+          "voyage": {
+            "voyage_id": "V0005",
+            "ship_name": "远洋一号",
+            "cargo_ids": [
+              "C009"
+            ],
+            "loading_port": "SHA",
+            "discharging_port": "GZH",
+            "departure_date": "2026-06-10",
+            "arrival_date": "2026-06-12",
+            "loading_start": "2026-06-08T08:00:00",
+            "loading_end": "2026-06-10T16:48:00",
+            "discharging_start": "2026-06-12T08:00:00",
+            "discharging_end": "2026-06-15T10:00:00",
+            "total_weight": 6000.0,
+            "is_dangerous": false,
+            "is_refrigerated": true,
+            "estimated_fuel": 85.41666666666666,
+            "estimated_days": 8.520476190476192
+          },
+          "cost": {
+            "fuel_cost": 315000.0,
+            "port_loading_fee": 90000.0,
+            "port_discharging_fee": 84000.0,
+            "dangerous_cargo_fee": 0.0,
+            "refrigerated_fee": 468000.0,
+            "charter_cost": 560000.0,
+            "demurrage_cost": 42291.66666666667,
+            "total_cost": 1559291.6666666667
+          },
+          "warnings": [
+            "船舶载重率较低: 12.0%",
+            "存在中等滞期风险"
+          ],
+          "errors": [],
+          "demurrage_risk": "medium"
+        },
+        {
+          "voyage": {
+            "voyage_id": "V0006",
+            "ship_name": "长江明珠",
+            "cargo_ids": [
+              "C010"
+            ],
+            "loading_port": "QDO",
+            "discharging_port": "TJG",
+            "departure_date": "2026-07-01",
+            "arrival_date": "2026-07-02",
+            "loading_start": "2026-06-23T08:00:00",
+            "loading_end": "2026-07-01T11:04:36.923077",
+            "discharging_start": "2026-07-02T08:00:00",
+            "discharging_end": "2026-07-10T18:00:00",
+            "total_weight": 18000.0,
+            "is_dangerous": false,
+            "is_refrigerated": false,
+            "estimated_fuel": 35.0,
+            "estimated_days": 19.057692307692307
+          },
+          "cost": {
+            "fuel_cost": 90000.0,
+            "port_loading_fee": 234000.0,
+            "port_discharging_fee": 288000.0,
+            "dangerous_cargo_fee": 0.0,
+            "refrigerated_fee": 0.0,
+            "charter_cost": 765000.0,
+            "demurrage_cost": 135333.3333333462,
+            "total_cost": 1512333.3333333463
+          },
+          "warnings": [
+            "预计抵达时间超出货物期限 7 天",
+            "存在中等滞期风险"
+          ],
+          "errors": [
+            "存在高滞期风险",
+            "存在高滞期风险"
+          ],
+          "demurrage_risk": "high"
+        }
+      ],
+      "check_results": [
+        {
+          "voyage_id": "V0001",
+          "passed": false,
+          "issues": [
+            "与航次 V0002 时间重叠 4.9 小时",
+            "装港泊位冲突: 与航次 V0005 重叠 56.8 小时"
+          ],
+          "details": {
+            "deadweight": "载重率: 32.0%",
+            "draft": "吃水富余: 装港 3.50m, 卸港 4.00m",
+            "compatibility": "货物兼容",
+            "schedule": "与航次 V0002 时间重叠 4.9 小时",
+            "port_availability": "装港泊位冲突: 与航次 V0005 重叠 56.8 小时",
+            "deadlines": "所有货物时间要求满足"
+          }
+        },
+        {
+          "voyage_id": "V0002",
+          "passed": false,
+          "issues": [
+            "与航次 V0001 时间重叠 4.9 小时",
+            "货物 C003 延迟 6 天抵达"
+          ],
+          "details": {
+            "deadweight": "载重率: 20.0%",
+            "draft": "吃水富余: 装港 4.50m, 卸港 3.50m",
+            "compatibility": "货物兼容，含冷链",
+            "schedule": "与航次 V0001 时间重叠 4.9 小时",
+            "port_availability": "港口泊位可用",
+            "deadlines": "货物 C003 延迟 6 天抵达"
+          }
+        },
+        {
+          "voyage_id": "V0003",
+          "passed": true,
+          "issues": [],
+          "details": {
+            "deadweight": "载重率: 8.6%",
+            "draft": "吃水富余: 装港 2.50m, 卸港 3.50m",
+            "compatibility": "货物兼容",
+            "schedule": "无时间冲突",
+            "port_availability": "港口泊位可用",
+            "deadlines": "所有货物时间要求满足"
+          }
+        },
+        {
+          "voyage_id": "V0004",
+          "passed": false,
+          "issues": [
+            "装港泊位冲突: 与航次 V0005 重叠 1.3 小时"
+          ],
+          "details": {
+            "deadweight": "载重率: 10.0%",
+            "draft": "吃水富余: 装港 1.00m, 卸港 2.00m",
+            "compatibility": "货物兼容",
+            "schedule": "无时间冲突",
+            "port_availability": "装港泊位冲突: 与航次 V0005 重叠 1.3 小时",
+            "deadlines": "所有货物时间要求满足"
+          }
+        },
+        {
+          "voyage_id": "V0005",
+          "passed": false,
+          "issues": [
+            "装港泊位冲突: 与航次 V0001 重叠 56.8 小时; 卸港泊位冲突: 与航次 V0004 重叠 1.3 小时"
+          ],
+          "details": {
+            "deadweight": "载重率: 12.0%",
+            "draft": "吃水富余: 装港 1.00m, 卸港 0.00m",
+            "compatibility": "货物兼容，含冷链",
+            "schedule": "无时间冲突",
+            "port_availability": "装港泊位冲突: 与航次 V0001 重叠 56.8 小时; 卸港泊位冲突: 与航次 V0004 重叠 1.3 小时",
+            "deadlines": "所有货物时间要求满足"
+          }
+        },
+        {
+          "voyage_id": "V0006",
+          "passed": false,
+          "issues": [
+            "与航次 V0002 时间重叠 4.0 小时",
+            "货物 C010 延迟 7 天抵达"
+          ],
+          "details": {
+            "deadweight": "载重率: 72.0%",
+            "draft": "吃水富余: 装港 4.50m, 卸港 3.00m",
+            "compatibility": "货物兼容",
+            "schedule": "与航次 V0002 时间重叠 4.0 小时",
+            "port_availability": "港口泊位可用",
+            "deadlines": "货物 C010 延迟 7 天抵达"
+          }
+        }
+      ],
+      "unassigned_cargos": [
+        {
+          "cargo_id": "C002",
+          "cargo_name": "超大件设备",
+          "loading_port": "NGB",
+          "discharging_port": "GZH",
+          "weight": 100000.0,
+          "cargo_type": "normal",
+          "reason": "货物重量超过所有船舶载重"
+        },
+        {
+          "cargo_id": "C004",
+          "cargo_name": "超级危险化学品",
+          "loading_port": "TJG",
+          "discharging_port": "NGB",
+          "weight": 5000.0,
+          "cargo_type": "dangerous",
+          "reason": "无危险品运输资质船舶"
+        },
+        {
+          "cargo_id": "C006",
+          "cargo_name": "特殊疫苗",
+          "loading_port": "XXX",
+          "discharging_port": "YYY",
+          "weight": 2000.0,
+          "cargo_type": "refrigerated",
+          "reason": "装货港 XXX 不存在; 卸货港 YYY 不存在"
+        },
+        {
+          "cargo_id": "C008",
+          "cargo_name": "烟花爆竹",
+          "loading_port": "NGB",
+          "discharging_port": "SZX",
+          "weight": 2000.0,
+          "cargo_type": "dangerous",
+          "reason": "无危险品运输资质船舶"
+        }
+      ]
+    }
+  ],
+  "selected_scenario_id": null,
+  "notes": null,
+  "filters_applied": {
+    "date_type": "departure"
+  }
+}

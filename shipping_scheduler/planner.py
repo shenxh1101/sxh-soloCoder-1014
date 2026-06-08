@@ -1,8 +1,47 @@
 from datetime import datetime, timedelta, date
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Callable
 from collections import defaultdict
-from .models import Port, Ship, Cargo, Voyage, VoyagePlan, CostBreakdown, CargoType
+from .models import (
+    Port, Ship, Cargo, Voyage, VoyagePlan, CostBreakdown, CargoType,
+    UnassignedCargo, PlanStrategy
+)
 from .data_loader import get_route_distance
+
+
+STRATEGY_CONFIGS = {
+    PlanStrategy.LOWEST_COST: {
+        "name": "最低成本",
+        "description": "优先选择总成本最低的船舶和方案，适合预算敏感场景",
+        "cost_weight": 1.0,
+        "time_weight": 0.3,
+        "priority_weight": 0.5,
+        "demurrage_weight": 0.4,
+    },
+    PlanStrategy.FASTEST_ARRIVAL: {
+        "name": "最快到港",
+        "description": "优先选择航行和装卸时间最短的方案，适合紧急货物",
+        "cost_weight": 0.3,
+        "time_weight": 1.0,
+        "priority_weight": 0.6,
+        "demurrage_weight": 0.2,
+    },
+    PlanStrategy.PRIORITY_FIRST: {
+        "name": "优先级优先",
+        "description": "优先保障高优先级货物按时抵达，适合重要物资运输",
+        "cost_weight": 0.4,
+        "time_weight": 0.6,
+        "priority_weight": 1.0,
+        "demurrage_weight": 0.5,
+    },
+    PlanStrategy.LOW_DEMURRAGE: {
+        "name": "低滞期风险",
+        "description": "优先选择滞期风险最低的方案，避免港口拥堵和额外费用",
+        "cost_weight": 0.5,
+        "time_weight": 0.4,
+        "priority_weight": 0.5,
+        "demurrage_weight": 1.0,
+    },
+}
 
 
 def calculate_sailing_days(distance: float, speed: float) -> float:
@@ -61,6 +100,119 @@ def group_cargos_by_route(cargos: List[Cargo]) -> Dict[Tuple[str, str], List[Car
 
 def sort_cargos_by_priority(cargos: List[Cargo]) -> List[Cargo]:
     return sorted(cargos, key=lambda c: (-c.priority, c.ready_date))
+
+
+def sort_cargos_by_deadline(cargos: List[Cargo]) -> List[Cargo]:
+    return sorted(cargos, key=lambda c: (c.deadline, -c.priority))
+
+
+def sort_cargos_by_ready_date(cargos: List[Cargo]) -> List[Cargo]:
+    return sorted(cargos, key=lambda c: (c.ready_date, -c.priority))
+
+
+def get_sort_function(strategy: PlanStrategy) -> Callable[[List[Cargo]], List[Cargo]]:
+    if strategy == PlanStrategy.FASTEST_ARRIVAL:
+        return sort_cargos_by_deadline
+    elif strategy == PlanStrategy.LOW_DEMURRAGE:
+        return sort_cargos_by_ready_date
+    else:
+        return sort_cargos_by_priority
+
+
+def calculate_strategy_score(
+    plan: VoyagePlan,
+    ship: Ship,
+    batch: List[Cargo],
+    sailing_days: float,
+    total_days: float,
+    estimated_cost: float,
+    start_delay: int,
+    strategy: PlanStrategy,
+) -> float:
+    config = STRATEGY_CONFIGS.get(strategy, STRATEGY_CONFIGS[PlanStrategy.LOWEST_COST])
+
+    max_priority = max(c.priority for c in batch)
+    avg_priority = sum(c.priority for c in batch) / len(batch)
+    priority_penalty = (5 - avg_priority) * 10000 * config["priority_weight"]
+
+    deadline_delays = []
+    for c in batch:
+        if plan.voyage.arrival_date > c.deadline:
+            delay = (plan.voyage.arrival_date - c.deadline).days
+            deadline_delays.append(delay)
+    deadline_penalty = sum(deadline_delays) * 5000 * config["time_weight"]
+
+    demurrage_penalty = 0
+    if plan.demurrage_risk == "medium":
+        demurrage_penalty = 50000 * config["demurrage_weight"]
+    elif plan.demurrage_risk == "high":
+        demurrage_penalty = 200000 * config["demurrage_weight"]
+
+    error_penalty = len(plan.errors) * 100000
+    warning_penalty = len(plan.warnings) * 10000
+    delay_penalty = start_delay * ship.daily_charter * 2 * config["time_weight"]
+    cost_component = estimated_cost * config["cost_weight"]
+    time_component = total_days * 2000 * config["time_weight"]
+
+    return (
+        cost_component +
+        time_component +
+        priority_penalty +
+        deadline_penalty +
+        demurrage_penalty +
+        error_penalty +
+        warning_penalty +
+        delay_penalty
+    )
+
+
+def get_unassigned_reason(
+    cargo: Cargo,
+    ships: Dict[str, Ship],
+    ports: Dict[str, Port],
+) -> str:
+    reasons = []
+    load_port = ports.get(cargo.loading_port)
+    disch_port = ports.get(cargo.discharging_port)
+
+    if not load_port:
+        reasons.append(f"装货港 {cargo.loading_port} 不存在")
+    if not disch_port:
+        reasons.append(f"卸货港 {cargo.discharging_port} 不存在")
+
+    if load_port and disch_port:
+        suitable_ships = []
+        for ship in ships.values():
+            if ship.deadweight < cargo.weight * 0.9:
+                continue
+            if ship.draft > load_port.max_draft or ship.draft > disch_port.max_draft:
+                continue
+            if cargo.cargo_type == CargoType.DANGEROUS and not ship.carries_dangerous:
+                continue
+            if cargo.cargo_type == CargoType.REFRIGERATED and not ship.carries_refrigerated:
+                continue
+            suitable_ships.append(ship)
+
+        if not suitable_ships:
+            ship_reasons = []
+            if cargo.weight > max((s.deadweight for s in ships.values()), default=0):
+                ship_reasons.append("货物重量超过所有船舶载重")
+            if cargo.cargo_type == CargoType.DANGEROUS and not any(s.carries_dangerous for s in ships.values()):
+                ship_reasons.append("无危险品运输资质船舶")
+            if cargo.cargo_type == CargoType.REFRIGERATED and not any(s.carries_refrigerated for s in ships.values()):
+                ship_reasons.append("无冷链运输能力船舶")
+            if load_port.max_draft < min((s.draft for s in ships.values()), default=999):
+                ship_reasons.append("港口吃水限制")
+            if disch_port.max_draft < min((s.draft for s in ships.values()), default=999):
+                ship_reasons.append("卸港吃水限制")
+            if not ship_reasons:
+                ship_reasons.append("无合适船舶")
+            reasons.extend(ship_reasons)
+
+    if not reasons:
+        reasons.append("船舶档期冲突或其他原因")
+
+    return "; ".join(reasons)
 
 
 def find_compatible_ships(
@@ -206,15 +358,18 @@ def generate_candidate_voyages(
     cargos: List[Cargo],
     routes: Dict,
     max_cargos_per_voyage: int = 5,
-) -> List[VoyagePlan]:
+    strategy: PlanStrategy = PlanStrategy.LOWEST_COST,
+) -> Tuple[List[VoyagePlan], List[UnassignedCargo]]:
     plans = []
+    unassigned: List[UnassignedCargo] = []
     voyage_counter = 1
 
     grouped_cargos = group_cargos_by_route(cargos)
     ship_schedules: Dict[str, datetime] = {}
+    sort_func = get_sort_function(strategy)
 
-    for (load_port, disch_port), route_cargos in grouped_cargos.items():
-        sorted_cargos = sort_cargos_by_priority(route_cargos)
+    for (load_port_code, disch_port_code), route_cargos in grouped_cargos.items():
+        sorted_cargos = sort_func(route_cargos)
 
         i = 0
         while i < len(sorted_cargos):
@@ -222,6 +377,7 @@ def generate_candidate_voyages(
             batch_weight = 0.0
             batch_dangerous = False
             batch_refrigerated = False
+            start_i = i
 
             while len(batch) < max_cargos_per_voyage and i < len(sorted_cargos):
                 cargo = sorted_cargos[i]
@@ -242,6 +398,16 @@ def generate_candidate_voyages(
 
                 if not compatible_ships:
                     if not batch:
+                        reason = get_unassigned_reason(cargo, ships, ports)
+                        unassigned.append(UnassignedCargo(
+                            cargo_id=cargo.id,
+                            cargo_name=cargo.name,
+                            loading_port=cargo.loading_port,
+                            discharging_port=cargo.discharging_port,
+                            weight=cargo.weight,
+                            cargo_type=cargo.cargo_type.value,
+                            reason=reason
+                        ))
                         i += 1
                     break
 
@@ -251,11 +417,29 @@ def generate_candidate_voyages(
                 batch_refrigerated = new_refrigerated
                 i += 1
 
+            if not batch and i == start_i:
+                i += 1
+                continue
+
             if batch:
                 compatible_ships = find_compatible_ships(
                     batch, ships, ports, routes,
                     batch_dangerous, batch_refrigerated, batch_weight
                 )
+
+                if not compatible_ships:
+                    for cargo in batch:
+                        reason = get_unassigned_reason(cargo, ships, ports)
+                        unassigned.append(UnassignedCargo(
+                            cargo_id=cargo.id,
+                            cargo_name=cargo.name,
+                            loading_port=cargo.loading_port,
+                            discharging_port=cargo.discharging_port,
+                            weight=cargo.weight,
+                            cargo_type=cargo.cargo_type.value,
+                            reason=reason
+                        ))
+                    continue
 
                 best_ship = None
                 best_plan = None
@@ -297,11 +481,9 @@ def generate_candidate_voyages(
                         if last_end.date() > earliest_start:
                             start_delay = (last_end.date() - earliest_start).days
 
-                    score = (
-                        estimated_cost +
-                        start_delay * ship.daily_charter * 2 +
-                        len(plan.errors) * 100000 +
-                        len(plan.warnings) * 10000
+                    score = calculate_strategy_score(
+                        plan, ship, batch, sailing_days, total_days,
+                        estimated_cost, start_delay, strategy
                     )
 
                     if score < best_score:
@@ -313,7 +495,38 @@ def generate_candidate_voyages(
                     plans.append(best_plan)
                     ship_schedules[best_ship.name] = best_plan.voyage.discharging_end
                     voyage_counter += 1
-            else:
-                i += 1
+                else:
+                    for cargo in batch:
+                        reason = get_unassigned_reason(cargo, ships, ports)
+                        unassigned.append(UnassignedCargo(
+                            cargo_id=cargo.id,
+                            cargo_name=cargo.name,
+                            loading_port=cargo.loading_port,
+                            discharging_port=cargo.discharging_port,
+                            weight=cargo.weight,
+                            cargo_type=cargo.cargo_type.value,
+                            reason="无法找到合适船舶完成此批货物运输"
+                        ))
 
-    return plans
+    return plans, unassigned
+
+
+def generate_multi_scenario(
+    ports: Dict[str, Port],
+    ships: Dict[str, Ship],
+    cargos: List[Cargo],
+    routes: Dict,
+    strategies: List[PlanStrategy] = None,
+    max_cargos_per_voyage: int = 5,
+) -> Dict[PlanStrategy, Tuple[List[VoyagePlan], List[UnassignedCargo]]]:
+    if strategies is None:
+        strategies = list(PlanStrategy)
+
+    results = {}
+    for strategy in strategies:
+        plans, unassigned = generate_candidate_voyages(
+            ports, ships, cargos, routes, max_cargos_per_voyage, strategy
+        )
+        results[strategy] = (plans, unassigned)
+
+    return results

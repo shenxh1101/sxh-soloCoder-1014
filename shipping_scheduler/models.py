@@ -1,6 +1,6 @@
 from datetime import datetime, date
 from enum import Enum
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 
@@ -10,6 +10,92 @@ class CargoType(str, Enum):
     REFRIGERATED = "refrigerated"
     BULK = "bulk"
     LIQUID = "liquid"
+
+
+class PlanStrategy(str, Enum):
+    LOWEST_COST = "lowest_cost"
+    FASTEST_ARRIVAL = "fastest_arrival"
+    PRIORITY_FIRST = "priority_first"
+    LOW_DEMURRAGE = "low_demurrage"
+
+
+class UnassignedCargo(BaseModel):
+    cargo_id: str
+    cargo_name: str
+    loading_port: str
+    discharging_port: str
+    weight: float
+    cargo_type: str
+    reason: str
+
+
+class InputSummary(BaseModel):
+    port_count: int
+    ship_count: int
+    cargo_count: int
+    route_count: int
+    total_cargo_weight: float
+    ports: List[str] = Field(default_factory=list)
+    ships: List[str] = Field(default_factory=list)
+    data_sources: Dict[str, str] = Field(default_factory=dict)
+
+
+class PlanScenario(BaseModel):
+    scenario_id: str
+    strategy: PlanStrategy
+    strategy_name: str
+    description: str
+    plans: List[VoyagePlan] = Field(default_factory=list)
+    check_results: List[CheckResult] = Field(default_factory=list)
+    unassigned_cargos: List[UnassignedCargo] = Field(default_factory=list)
+
+    @property
+    def total_cost(self) -> float:
+        return sum(p.cost.total_cost for p in self.plans)
+
+    @property
+    def total_days(self) -> float:
+        return sum(p.voyage.estimated_days for p in self.plans)
+
+    @property
+    def total_weight(self) -> float:
+        return sum(p.voyage.total_weight for p in self.plans)
+
+    @property
+    def unassigned_count(self) -> int:
+        return len(self.unassigned_cargos)
+
+    @property
+    def anomaly_count(self) -> int:
+        count = 0
+        for p in self.plans:
+            count += len(p.warnings) + len(p.errors)
+        for r in self.check_results:
+            count += len(r.issues)
+        return count
+
+
+class SchedulePlan(BaseModel):
+    plan_id: str
+    name: str
+    generated_at: datetime
+    input_summary: InputSummary
+    scenarios: List[PlanScenario] = Field(default_factory=list)
+    selected_scenario_id: Optional[str] = None
+    notes: Optional[str] = None
+    filters_applied: Dict[str, Any] = Field(default_factory=dict)
+
+    def get_scenario(self, scenario_id: str) -> Optional[PlanScenario]:
+        for s in self.scenarios:
+            if s.scenario_id == scenario_id:
+                return s
+        return None
+
+    @property
+    def latest_scenario(self) -> Optional[PlanScenario]:
+        if self.scenarios:
+            return self.scenarios[-1]
+        return None
 
 
 class Port(BaseModel):

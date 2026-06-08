@@ -1,0 +1,11 @@
+id,name,cargo_type,weight,loading_port,discharging_port,ready_date,deadline,priority,handling_instructions
+C001,电子产品,normal,8000,SHA,SZX,2026-06-08,2026-06-20,5,轻拿轻放，防潮
+C002,超大件设备,normal,100000,NGB,GZH,2026-06-10,2026-06-25,4,重量远超所有船舶载重
+C003,海鲜产品,refrigerated,5000,QDO,SHA,2026-06-09,2026-06-15,5,全程冷链-18°C
+C004,超级危险化学品,dangerous,5000,TJG,NGB,2026-06-08,2026-06-30,4,无合适船舶资质
+C005,服装,normal,3000,SHA,QDO,2026-06-12,2026-06-22,3,防雨防潮
+C006,特殊疫苗,refrigerated,2000,XXX,YYY,2026-06-11,2026-06-18,5,港口不存在
+C007,医疗器械,normal,4000,GZH,SHA,2026-06-10,2026-06-18,5,精密仪器，防震
+C008,烟花爆竹,dangerous,2000,NGB,SZX,2026-06-15,2026-07-05,3,一级危险品
+C009,水果,refrigerated,6000,SHA,GZH,2026-06-08,2026-06-14,4,冷链0-4°C
+C010,钢材,bulk,18000,QDO,TJG,2026-06-09,2026-06-25,2,注意防锈

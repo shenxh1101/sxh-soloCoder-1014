@@ -7,7 +7,7 @@ from rich import box
 import json
 import csv
 from datetime import datetime
-from .models import VoyagePlan, CheckResult, Cargo
+from .models import VoyagePlan, CheckResult, Cargo, UnassignedCargo, PlanScenario
 from .cost_calculator import summarize_costs
 
 
@@ -30,7 +30,7 @@ def get_risk_color(risk: str) -> str:
     }.get(risk, "white")
 
 
-def print_schedule_table(plans: List[VoyagePlan], cargos: List[Cargo]):
+def print_schedule_table(plans: List[VoyagePlan], cargos: List[Cargo] = None):
     table = Table(title="航次调度表", box=box.ROUNDED, show_lines=True)
     table.add_column("航次号", style="cyan", no_wrap=True)
     table.add_column("船名", style="blue")
@@ -46,8 +46,11 @@ def print_schedule_table(plans: List[VoyagePlan], cargos: List[Cargo]):
 
     for plan in plans:
         voyage = plan.voyage
-        cargo_list = [c for c in cargos if c.id in voyage.cargo_ids]
-        cargo_names = ",".join([c.name[:10] for c in cargo_list])
+        if cargos:
+            cargo_list = [c for c in cargos if c.id in voyage.cargo_ids]
+            cargo_names = ",".join([c.name[:10] for c in cargo_list])
+        else:
+            cargo_names = ",".join(voyage.cargo_ids)
 
         type_tags = []
         if voyage.is_dangerous:
@@ -211,7 +214,34 @@ def print_anomalies(plans: List[VoyagePlan], check_results: List[CheckResult]):
     console.print(f"\n[bold red]发现 {len(anomalies)} 项异常[/bold red]")
 
 
-def print_cargo_manifest(plans: List[VoyagePlan], cargos: List[Cargo]):
+def print_cargo_manifest(plans: List[VoyagePlan], cargos: List[Cargo] = None):
+    if not cargos:
+        table = Table(title="货物配载清单", box=box.ROUNDED, show_lines=True)
+        table.add_column("航次号", style="cyan")
+        table.add_column("船名", style="blue")
+        table.add_column("货物ID", style="yellow")
+        table.add_column("重量(吨)", justify="right")
+        table.add_column("危险品", style="red")
+        table.add_column("冷链", style="blue")
+        table.add_column("离港", style="cyan")
+        table.add_column("到港", style="cyan")
+
+        for plan in plans:
+            voyage = plan.voyage
+            for cargo_id in voyage.cargo_ids:
+                table.add_row(
+                    voyage.voyage_id,
+                    voyage.ship_name,
+                    cargo_id,
+                    format_number(voyage.total_weight / len(voyage.cargo_ids)),
+                    "是" if voyage.is_dangerous else "否",
+                    "是" if voyage.is_refrigerated else "否",
+                    voyage.departure_date.strftime("%Y-%m-%d"),
+                    voyage.arrival_date.strftime("%Y-%m-%d"),
+                )
+        console.print(table)
+        return
+
     table = Table(title="货物配载清单", box=box.ROUNDED, show_lines=True)
     table.add_column("航次号", style="cyan")
     table.add_column("船名", style="blue")
@@ -301,3 +331,117 @@ def export_to_csv(plans: List[VoyagePlan], filepath: str):
             ])
 
     console.print(f"[green]已导出到 {filepath}[/green]")
+
+
+def print_unassigned_cargos(unassigned: List[UnassignedCargo]):
+    if not unassigned:
+        console.print(Panel("[green]✓ 所有货物均已安排[/green]", title="未安排货物", border_style="green"))
+        return
+
+    table = Table(title="未安排货物清单", box=box.ROUNDED, show_lines=True)
+    table.add_column("货物ID", style="cyan")
+    table.add_column("货物名称", style="yellow")
+    table.add_column("类型", style="magenta")
+    table.add_column("航线", style="blue")
+    table.add_column("重量(吨)", justify="right")
+    table.add_column("失败原因", style="red", overflow="fold")
+
+    for item in unassigned:
+        type_color = {
+            "normal": "white",
+            "dangerous": "red",
+            "refrigerated": "blue",
+            "bulk": "yellow",
+            "liquid": "magenta"
+        }.get(item.cargo_type, "white")
+
+        table.add_row(
+            item.cargo_id,
+            item.cargo_name,
+            f"[{type_color}]{item.cargo_type}[/{type_color}]",
+            f"{item.loading_port} → {item.discharging_port}",
+            format_number(item.weight),
+            item.reason
+        )
+
+    console.print(table)
+    console.print(f"\n[bold yellow]共 {len(unassigned)} 票货物未安排[/bold yellow]")
+
+
+def print_scenario_comparison(scenarios: List[PlanScenario]):
+    if not scenarios:
+        console.print("[yellow]没有可对比的方案[/yellow]")
+        return
+
+    table = Table(title="调度方案对比", box=box.ROUNDED, show_lines=True)
+    table.add_column("方案ID", style="cyan")
+    table.add_column("调度策略", style="bold magenta")
+    table.add_column("描述", style="dim", overflow="fold")
+    table.add_column("航次数", justify="right", style="green")
+    table.add_column("总载重(吨)", justify="right")
+    table.add_column("总天数", justify="right")
+    table.add_column("总费用", justify="right", style="bold green")
+    table.add_column("未安排", justify="right", style="yellow")
+    table.add_column("异常数", justify="right", style="red")
+    table.add_column("单位成本", justify="right")
+
+    for idx, scenario in enumerate(scenarios):
+        cost_per_ton = scenario.total_cost / scenario.total_weight if scenario.total_weight > 0 else 0
+
+        marker = " ★" if idx == 0 else ""
+        sc_id = scenario.scenario_id + marker
+
+        unassigned_style = "red" if scenario.unassigned_count > 0 else "green"
+        anomaly_style = "red" if scenario.anomaly_count > 0 else "green"
+
+        table.add_row(
+            sc_id,
+            scenario.strategy_name,
+            scenario.description,
+            str(len(scenario.plans)),
+            format_number(scenario.total_weight),
+            format_number(scenario.total_days),
+            format_currency(scenario.total_cost),
+            f"[{unassigned_style}]{scenario.unassigned_count}[/{unassigned_style}]",
+            f"[{anomaly_style}]{scenario.anomaly_count}[/{anomaly_style}]",
+            format_currency(cost_per_ton)
+        )
+
+    console.print(table)
+    console.print("\n[dim]★ 标记为默认推荐方案（按策略顺序）[/dim]")
+
+
+def export_scenario_comparison(scenarios: List[PlanScenario], filepath: str):
+    with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "方案ID", "调度策略", "策略代码", "描述",
+            "航次数", "总载重(吨)", "总天数",
+            "总费用", "单位成本(元/吨)", "未安排货物数",
+            "异常数", "高风险航次", "中风险航次", "低风险航次"
+        ])
+
+        for scenario in scenarios:
+            cost_per_ton = scenario.total_cost / scenario.total_weight if scenario.total_weight > 0 else 0
+            risk_counts = {"high": 0, "medium": 0, "low": 0}
+            for p in scenario.plans:
+                risk_counts[p.demurrage_risk] = risk_counts.get(p.demurrage_risk, 0) + 1
+
+            writer.writerow([
+                scenario.scenario_id,
+                scenario.strategy_name,
+                scenario.strategy.value,
+                scenario.description,
+                len(scenario.plans),
+                scenario.total_weight,
+                f"{scenario.total_days:.2f}",
+                f"{scenario.total_cost:.2f}",
+                f"{cost_per_ton:.2f}",
+                scenario.unassigned_count,
+                scenario.anomaly_count,
+                risk_counts["high"],
+                risk_counts["medium"],
+                risk_counts["low"]
+            ])
+
+    console.print(f"[green]方案对比表已导出到 {filepath}[/green]")
