@@ -102,6 +102,13 @@ def apply_filter_options(plans: List[VoyagePlan], **kwargs) -> List[VoyagePlan]:
     )
 
 
+def filter_check_results_by_plans(check_results: List[CheckResult], plans: List[VoyagePlan]) -> List[CheckResult]:
+    if not check_results or not plans:
+        return check_results or []
+    plan_ids = {p.voyage.voyage_id for p in plans}
+    return [cr for cr in check_results if cr.voyage_id in plan_ids]
+
+
 def load_all_data(ports_file, ships_file, cargos_file, routes_file):
     try:
         ports, ships, cargos, routes = load_data(
@@ -279,6 +286,7 @@ def plan(ctx, max_cargos, strategy, multi_strategies, all_strategies, plan_name,
             plans, check_results, unassigned, _ = get_active_scenario(ctx, scenario)
             if plans is not None:
                 plans = apply_filter_options(plans, **filter_kwargs)
+                check_results = filter_check_results_by_plans(check_results, plans)
                 console.print(f"[green]从计划文件加载: {len(plans)} 个航次[/green]\n")
                 _print_plan_results(plans, check_results, unassigned, cargos, show_costs,
                                   output_file, output_format, **filter_kwargs)
@@ -318,39 +326,44 @@ def plan(ctx, max_cargos, strategy, multi_strategies, all_strategies, plan_name,
 
         plans, unassigned = multi_results[strat]
         plans = calculate_all_costs(plans, ships, ports, cargos)
-        plans_filtered = apply_filter_options(plans, **filter_kwargs)
-        check_results = check_all(plans_filtered, ships, ports, cargos)
+        check_results_all = check_all(plans, ships, ports, cargos)
 
         if schedule_plan is not None:
             add_scenario(
                 schedule_plan, strat, config["name"], config["description"],
-                plans, check_results, unassigned
+                plans, check_results_all, unassigned
             )
+
+        plans_filtered = apply_filter_options(plans, **filter_kwargs)
+        check_results_filtered = [
+            cr for cr in check_results_all
+            if cr.voyage_id in [p.voyage.voyage_id for p in plans_filtered]
+        ]
 
         if len(strategies) == 1:
             if not plans_filtered:
                 console.print("[yellow]未生成符合条件的航次计划[/yellow]")
             else:
                 console.print(f"[green]已生成 {len(plans_filtered)} 个航次计划[/green]\n")
-                _print_plan_results(plans_filtered, check_results, unassigned, cargos,
+                _print_plan_results(plans_filtered, check_results_filtered, unassigned, cargos,
                                   show_costs, output_file, output_format, **filter_kwargs)
         else:
             console.print(f"  航次数: {len(plans)}, 未安排: {len(unassigned)}, "
                          f"总费用: {format_currency(sum(p.cost.total_cost for p in plans))}\n")
 
         ctx.obj[f"plans_{strat.value}"] = plans
-        ctx.obj[f"check_{strat.value}"] = check_results
+        ctx.obj[f"check_{strat.value}"] = check_results_all
         ctx.obj[f"unassigned_{strat.value}"] = unassigned
 
     if len(strategies) > 1:
         scenarios_list = []
-        for strat in strategies:
+        for idx, strat in enumerate(strategies):
             config = STRATEGY_CONFIGS[strat]
             plans = ctx.obj.get(f"plans_{strat.value}", [])
             unassigned = ctx.obj.get(f"unassigned_{strat.value}", [])
             check_results = ctx.obj.get(f"check_{strat.value}", [])
             scenarios_list.append(PlanScenario(
-                scenario_id=f"S{strat.value}",
+                scenario_id=f"S{str(idx + 1).zfill(2)}-{strat.value}",
                 strategy=strat,
                 strategy_name=config["name"],
                 description=config["description"],
@@ -424,11 +437,15 @@ def check(ctx, output_file, scenario, **filter_kwargs):
             plans = calculate_all_costs(plans, ships, ports, cargos)
 
     plans = apply_filter_options(plans, **filter_kwargs)
-    if check_results is None or len(check_results) != len(plans):
+    check_results = filter_check_results_by_plans(check_results, plans)
+
+    if check_results is None or len(check_results) == 0:
         if ships and ports:
             check_results = check_all(plans, ships, ports, cargos)
+        elif loaded_plan:
+            console.print("[dim]提示: 使用计划中已保存的检查结果[/dim]")
         else:
-            console.print("[yellow]警告: 缺少船舶/港口原始数据，将使用计划中已保存的检查结果[/yellow]")
+            console.print("[yellow]警告: 缺少船舶/港口原始数据，无法执行约束检查[/yellow]")
             check_results = []
 
     print_schedule_table(plans, cargos)
@@ -477,11 +494,15 @@ def cost(ctx, detail, output_file, scenario, **filter_kwargs):
     has_cost_data = all(hasattr(p, 'cost') and p.cost and p.cost.total_cost > 0 for p in plans) if plans else False
     if not has_cost_data and ships and ports and cargos:
         plans = calculate_all_costs(plans, ships, ports, cargos)
+    elif not has_cost_data and loaded_plan:
+        console.print("[dim]提示: 使用计划中已保存的费用数据[/dim]")
     elif not has_cost_data:
-        console.print("[yellow]警告: 缺少船舶/港口/货物原始数据，无法重新计算费用，将使用计划中已保存的数据[/yellow]")
+        console.print("[yellow]警告: 缺少船舶/港口/货物原始数据，无法重新计算费用[/yellow]")
 
     plans = apply_filter_options(plans, **filter_kwargs)
-    if check_results is None or len(check_results) != len(plans):
+    check_results = filter_check_results_by_plans(check_results, plans)
+
+    if check_results is None or len(check_results) == 0:
         if ships and ports:
             check_results = check_all(plans, ships, ports, cargos)
         else:
@@ -547,9 +568,13 @@ def report(ctx, report_type, output_file, output_format, scenario, compare_all, 
             plans = calculate_all_costs(plans, ships, ports, cargos)
 
     plans = apply_filter_options(plans, **filter_kwargs)
-    if check_results is None or len(check_results) != len(plans):
+    check_results = filter_check_results_by_plans(check_results, plans)
+
+    if check_results is None or len(check_results) == 0:
         if ships and ports:
             check_results = check_all(plans, ships, ports, cargos)
+        elif loaded_plan:
+            console.print("[dim]提示: 使用计划中已保存的检查结果[/dim]")
         else:
             check_results = []
 
